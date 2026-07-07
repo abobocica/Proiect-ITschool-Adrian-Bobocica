@@ -5,7 +5,9 @@
 
 # Legend:
 #     -background: https://opengameart.org/content/space-skybox-0
-#     -main ship: https://opengameart.org/content/purple-space-ship
+#     -MySpaceShip: https://opengameart.org/content/purple-space-ship
+#     -ShipDefaultBullet: https://opengameart.org/content/pixel-bullet
+#     -EnemyBullet2: https://opengameart.org/content/missile-32x32
 
 import pygame
 from pygame.locals import *
@@ -30,6 +32,7 @@ class GenericObject(pygame.sprite.Sprite):
         """
         pygame.sprite.Sprite.__init__(self)
         self.__image = pygame.image.load(image)
+        self.__mask = pygame.mask.from_surface(self.__image)
         self.__rect = self.__image.get_rect()
         self.__rect.center = [x_coord, y_coord]
 
@@ -39,11 +42,15 @@ class GenericObject(pygame.sprite.Sprite):
 
     @property
     def rect(self):
-         return self.__rect
+        return self.__rect
     
     @property
     def image(self):
-         return self.__image
+        return self.__image
+    
+    @property
+    def mask(self):
+        return self.__mask
 
 class GenericProjectileType(GenericObject):
     """
@@ -66,7 +73,7 @@ class UpwardsBullet(GenericProjectileType):
     """
     This class represents a bullet that travels upwards.
     """
-    def update(self, enemy_group_ship):
+    def update(self, enemy_ship_group):
         """
         Update the bullet's position. If it goes off the screen, delete it
         """
@@ -74,7 +81,7 @@ class UpwardsBullet(GenericProjectileType):
         if self.rect.bottom < 0:
             self.kill()
 
-        if pygame.sprite.spritecollide(self, enemy_group_ship, True):
+        if pygame.sprite.spritecollide(self, enemy_ship_group, True, pygame.sprite.collide_mask):
             self.kill()
 
 class DownwardsBullet(GenericProjectileType):
@@ -96,7 +103,9 @@ class DownwardsBullet(GenericProjectileType):
         if self.rect.top > self.__top:
             self.kill()
 
-        if pygame.sprite.spritecollide(self, my_ship_group, True):
+        if pygame.sprite.spritecollide(self, my_ship_group, False, pygame.sprite.collide_mask):
+            ship = pygame.sprite.Group.sprites(my_ship_group)[0]
+            ship.remaining_health -= 1
             self.kill()
 
 class WaponsSytem():
@@ -223,6 +232,14 @@ class MyShip(GenericObject):
     @property
     def cooldown(self):
         return self.__cooldown
+    
+    @property
+    def remaining_health(self):
+        return self.__remaining_health
+    
+    @remaining_health.setter
+    def remaining_health(self, a):
+        self.__remaining_health = a
 
 
 
@@ -274,6 +291,9 @@ class GameMaster():
         self.__game_background = pygame.image.load(self.__background)
 
     def create_enemies(self):
+        """
+        Crerates enemies according to the enemies_map and enemies dictionary provided earlier.
+        """
         for row in self.__enemies_map:
             for enemy in row:
                 x_coord = enemy[0]
@@ -286,6 +306,11 @@ class GameMaster():
                 self.add_enemy_ship(new_enemy)
 
     def add_enemy_bullet(self):
+        """
+        Adds an enemy bullet originating from a random enemy ship.
+        This is only done once a second, to a limit of 5 bullets.
+        """
+
         # get the current time before the enmy attempts to attack
         get_time = pygame.time.get_ticks()
         if get_time - self.__last_time_enemy_fired > self.__enemy_bulled_cooldown and len(self.__enemy_bullets_group) <= 10 and len(self.__enemy_ship_group) > 0:
@@ -315,20 +340,17 @@ class GameMaster():
             if event.type == pygame.QUIT:
                 return False
         
-        for spaceship in self.__ship_group:
-            spaceship.update()
+        self.__spaceship.update()
 
         for my_bullet in self.__my_bullets_group:
             my_bullet.update(self.__enemy_ship_group)
 
-        # print(self.__my_bullets_group)
         for enemy_ship in self.__enemy_ship_group:
             enemy_ship.update()
 
         self.add_enemy_bullet()
         for enemy_bullet in self.__enemy_bullets_group:
             enemy_bullet.update(self.__ship_group)
-        # print(self.__enemy_bullets_group)
 
         self.__ship_group.draw(game_master.screen)
         self.__enemy_ship_group.draw(game_master.screen)
@@ -337,12 +359,13 @@ class GameMaster():
 
         pygame.display.update()
 
-        if len(self.__ship_group) <=0 or len(self.__enemy_ship_group) <= 0:
+        if self.__spaceship.remaining_health <= 0 or len(self.__enemy_ship_group) <= 0:
             return False
         return True
     
     def add_ship(self, flying_object:GenericObject):
         self.__ship_group.add(flying_object)
+        self.__spaceship = flying_object
 
     def add_enemy_ship(self, flying_object:GenericObject):
         self.__enemy_ship_group.add(flying_object)
