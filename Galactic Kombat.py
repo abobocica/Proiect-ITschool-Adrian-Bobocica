@@ -18,8 +18,11 @@ import abc
     # Currently intializes the codes for red and greed
 ColorPallete ={
     "red": (255, 0, 0),
-    "green": (0, 255, 0)
+    "green": (0, 255, 0),
+    "white": (255, 255, 255)
 }
+
+victory_condition = 0
 
 class GenericObject(pygame.sprite.Sprite):
     """
@@ -290,6 +293,17 @@ class GameMaster():
         pygame.display.set_caption(self.__caption)
         self.__game_background = pygame.image.load(self.__background)
 
+    def screen_message(self, received_text):
+        """
+        Function to paste text on screen
+        """
+        pygame.init()
+        font_to_use = pygame.font.SysFont('Arial', 50)
+        image = font_to_use.render(received_text, True, ColorPallete["red"])
+        x_coord = int(self.__width / 2 - 110)
+        y_coord = int(self.__heigth / 2 + 50)
+        self.__screen.blit(image, (x_coord, y_coord))
+
     def create_enemies(self):
         """
         Crerates enemies according to the enemies_map and enemies dictionary provided earlier.
@@ -332,6 +346,8 @@ class GameMaster():
             -if not, update the position of every spaceship onto the screen
                 then draw the screem
         """
+        global victory_condition
+        
         self.__clock.tick(self.__fps)
 
         self.__screen.blit(self.__game_background, (0,0))
@@ -360,6 +376,10 @@ class GameMaster():
         pygame.display.update()
 
         if self.__spaceship.remaining_health <= 0 or len(self.__enemy_ship_group) <= 0:
+            if self.__spaceship.remaining_health <= 0:
+                victory_condition = -1
+            else:
+                victory_condition = 1
             return False
         return True
     
@@ -389,7 +409,6 @@ class GameMaster():
     def weapon_system(self):
         return self.__weapon_system
 
-
 game_master = GameMaster(1638, 1228, 60, "Galactic Kombat", "Images/background.png")
 game_master.start_display()
 
@@ -401,4 +420,18 @@ while keep_running:
 
             keep_running = game_master.update_screen() #update the screen        
 
+if victory_condition == 1:
+    game_master.screen_message("YOU WON!")
+else:
+    game_master.screen_message("GAME OVER")
+
+pygame.display.flip()
+
+done = False
+while True:
+    for event in pygame.event.get():
+        if event.type == pygame.KEYDOWN:
+            done = True
+    if done == True:
+        break
 pygame.quit()
